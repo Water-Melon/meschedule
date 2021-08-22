@@ -31,7 +31,7 @@ $ melang scheduler.mln
 
 ### Task Configuration
 
-```json
+```
 {
     "name": "task name",
     "period": "* * * * *", //cron format but not support range '-', such as 1-10.
@@ -43,7 +43,7 @@ $ melang scheduler.mln
 
 Example:
 
-```json
+```
 {
     "name": "a", //this task's name.
     "period": "* * * * *", //execute in every minute.
