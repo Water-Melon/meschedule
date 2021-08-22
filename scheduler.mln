@@ -1,0 +1,86 @@
+/*
+ * Copyright (C) Niklaus F.Schen.
+ */
+@load_conf()
+{
+    f = $File;
+    f.open('./config.json', 'r');
+    conf = @mln_json_decode(f.read(f.size()));
+    f.close();
+    return conf;
+}
+
+@load_task(path)
+{
+    tasks = [];
+    files = @mln_lsdir(path);
+    n = @mln_size(files);
+    for (i = 0; i < n; ++i) {
+        if (files[i]  == '.' || files[i] == '..')
+            continue;
+        fi
+        f = $File;
+        f.open(path+'/'+files[i], 'r');
+        conf = @mln_json_decode(f.read(f.size()));
+        f.close();
+        tasks[] = conf;
+    }
+    return tasks;
+}
+
+conf = @load_conf();
+for (i = 0; i < conf['concurrency']; ++i) {
+    @mln_eval('worker.mln');
+}
+
+readyq = [];
+runq = [];
+procq = [];
+logq = [];
+base_timestamp = @mln_time();
+
+while (true) {
+    runq = [];
+    deps = [];
+    tasks = @load_task(conf['path']);
+    now = @mln_time();
+    n = @mln_size(tasks);
+    for (i = 0; i < n; ++i) {
+        next = @mln_cron(tasks[i]['period'], now);
+        name = tasks[i]['name'];
+        if (next - now < 30 && !@mln_has(readyq, name) && (!@mln_has(logq, name) || logq[name] < next)) {
+            logq[name] = next;
+            readyq[name] = tasks[i];
+        } fi
+    }
+    keys = @mln_keys(readyq);
+    n = @mln_size(keys);
+    for (i = 0; i < n; ++i) {
+        if (@mln_has(procq, keys[i]))
+            continue;
+        fi
+        add = true;
+        arr = readyq[keys[i]]['deps'];
+        m = @mln_size(arr);
+        for (j = 0; j < m; ++j) {
+            if (@mln_has(readyq, arr[j]) || @mln_has(procq, arr[j])) {
+                add = false;
+                break;
+            } fi
+        }
+        if (add) {
+            runq[keys[i]] = readyq[keys[i]];
+            @mln_msg_queue_send('msg', keys[i]+'-'+@mln_base64(@mln_replace(@mln_merge(readyq[keys[i]]['data'], conf['data']), readyq[keys[i]]['cmd']), 'encode'));
+        } fi
+    }
+    procq = @mln_merge(procq, runq);
+    readyq = @mln_key_diff(readyq, runq);
+    runq = [];
+    for (i = 0; i < conf['concurrency']; ++i) {
+        msg = @mln_msg_queue_recv('ack', 1);
+        if (msg != nil) {
+            runq[msg] = 1;
+        } fi
+    }
+    procq = @mln_key_diff(procq, runq);
+}
