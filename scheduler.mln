@@ -23,6 +23,7 @@
         f.open(path+'/'+files[i], 'r');
         conf = @mln_json_decode(f.read(f.size()));
         f.close();
+        if (!conf) continue; fi
         tasks[] = conf;
     }
     return tasks;
@@ -42,13 +43,14 @@ base_timestamp = @mln_time();
 while (true) {
     runq = [];
     deps = [];
+    tm = @mln_time();
     tasks = @load_task(conf['path']);
-    now = @mln_time();
     n = @mln_size(tasks);
+    now = @mln_time();
     for (i = 0; i < n; ++i) {
         next = @mln_cron(tasks[i]['period'], now);
         name = tasks[i]['name'];
-        if (next - now < 30 && !@mln_has(readyq, name) && (!@mln_has(logq, name) || logq[name] < next)) {
+        if (next - now < now - tm && !@mln_has(readyq, name) && (!@mln_has(logq, name) || logq[name] < next)) {
             logq[name] = next;
             readyq[name] = tasks[i];
         } fi
