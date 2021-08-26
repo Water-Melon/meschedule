@@ -1,6 +1,6 @@
-/*
- * Copyright (C) Niklaus F.Schen.
- */
+-/*
+- * Copyright (C) Niklaus F.Schen.
+- */
 @load_conf()
 {
     f = $File;
@@ -39,6 +39,7 @@ runq = [];
 procq = [];
 logq = [];
 base_timestamp = @mln_time();
+delta = 0;
 
 while (true) {
     runq = [];
@@ -48,9 +49,9 @@ while (true) {
     n = @mln_size(tasks);
     now = @mln_time();
     for (i = 0; i < n; ++i) {
-        next = @mln_cron(tasks[i]['period'], now);
+        next = @mln_cron(tasks[i]['period'], now-now%60+15);
         name = tasks[i]['name'];
-        if (next - now < now - tm && !@mln_has(readyq, name) && (!@mln_has(logq, name) || logq[name] < next)) {
+        if (next-now <= now-tm+delta+16 && !@mln_has(readyq, name) && (!@mln_has(logq, name) || logq[name] < next)) {
             logq[name] = next;
             readyq[name] = tasks[i];
         } fi
@@ -85,4 +86,5 @@ while (true) {
         } fi
     }
     procq = @mln_key_diff(procq, runq);
+    delta = @mln_time() - now;
 }
