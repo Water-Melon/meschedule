@@ -1,6 +1,6 @@
--/*
-- * Copyright (C) Niklaus F.Schen.
-- */
+/*
+ * Copyright (C) Niklaus F.Schen.
+ */
 @load_conf()
 {
     f = $File;
@@ -24,7 +24,12 @@
         conf = @mln_json_decode(f.read(f.size()));
         f.close();
         if (!conf) continue; fi
-        tasks[] = conf;
+        if (!@mln_has(conf, 'data'))
+            conf['data'] = [];
+        fi
+        conf['data']['PWD'] = path;
+        conf['base'] = @mln_time();
+        tasks[conf['name']] = conf;
     }
     return tasks;
 }
@@ -38,20 +43,18 @@ readyq = [];
 runq = [];
 procq = [];
 logq = [];
-base_timestamp = @mln_time();
 delta = 0;
+tasks = @load_task(conf['path']);
 
 while (true) {
     runq = [];
     deps = [];
-    tm = @mln_time();
-    tasks = @load_task(conf['path']);
     n = @mln_size(tasks);
     now = @mln_time();
     for (i = 0; i < n; ++i) {
-        next = @mln_cron(tasks[i]['period'], now-now%60+15);
+        next = @mln_cron(tasks[i]['period'], tasks[i]['base']/60*60+@mln_int(conf['delta_sec']));
         name = tasks[i]['name'];
-        if (next-now <= now-tm+delta+16 && !@mln_has(readyq, name) && (!@mln_has(logq, name) || logq[name] < next)) {
+        if (next <= now+delta+conf['delta_sec']+1 && !@mln_has(readyq, name) && (!@mln_has(logq, name) || logq[name] < next)) {
             logq[name] = next;
             readyq[name] = tasks[i];
         } fi
@@ -83,6 +86,7 @@ while (true) {
         msg = @mln_msg_queue_recv('ack', 1);
         if (msg != nil) {
             runq[msg] = 1;
+            tasks[msg]['base'] = @mln_time()+@mln_int(conf['delta_sec']);
         } fi
     }
     procq = @mln_key_diff(procq, runq);

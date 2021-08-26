@@ -23,6 +23,7 @@ $ melang scheduler.mln
 {
     "path": "test", //task directory path
     "concurrency": 10, //the number of workers to execute shell command
+    "delta_sec": 15, //set cron task start second per minute
     "data": {} //customized variables to replace the relevant keys in the command of a task configuration
 }
 ```
