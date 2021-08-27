@@ -41,6 +41,7 @@ $ melang scheduler.mln
     "data": {}
 }
 ```
+There is an variable `PWD` always be given in `data` by scheduler to indicate the directory path of this task json file.
 
 Example:
 
