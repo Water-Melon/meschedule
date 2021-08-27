@@ -10,26 +10,29 @@
     return conf;
 }
 
-@load_task(path)
+@load_task(&tasks, path)
 {
-    tasks = [];
     files = @mln_lsdir(path);
     n = @mln_size(files);
     for (i = 0; i < n; ++i) {
         if (files[i]  == '.' || files[i] == '..')
             continue;
         fi
-        f = $File;
-        f.open(path+'/'+files[i], 'r');
-        conf = @mln_json_decode(f.read(f.size()));
-        f.close();
-        if (!conf) continue; fi
-        if (!@mln_has(conf, 'data'))
-            conf['data'] = [];
-        fi
-        conf['data']['PWD'] = path;
-        conf['base'] = @mln_time();
-        tasks[conf['name']] = conf;
+        if (@mln_isdir(path+'/'+files[i])) {
+            @load_task(tasks, path+'/'+files[i]);
+        } else {
+            f = $File;
+            f.open(path+'/'+files[i], 'r');
+            conf = @mln_json_decode(f.read(f.size()));
+            f.close();
+            if (!conf) continue; fi
+            if (!@mln_has(conf, 'data'))
+                conf['data'] = [];
+            fi
+            conf['data']['PWD'] = path;
+            conf['base'] = @mln_time();
+            tasks[conf['name']] = conf;
+        }
     }
     return tasks;
 }
@@ -43,8 +46,9 @@ readyq = [];
 runq = [];
 procq = [];
 logq = [];
+tasks = [];
 delta = 0;
-tasks = @load_task(conf['path']);
+@load_task(tasks, conf['path']);
 
 while (true) {
     runq = [];
