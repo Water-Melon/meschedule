@@ -2,10 +2,10 @@
  * Copyright (C) Niklaus F.Schen.
  */
 while (1){
-    msg = @mln_msg_queue_recv('msg');
-    arr = @mln_slice(msg, '-');
-    msg = @mln_base64(arr[1], 'decode');
-    msg = @mln_exec(msg);
-    @mln_print(msg);
-    @mln_msg_queue_send('ack', arr[0]);
+    msg = mln_msg_queue_recv('msg');
+    arr = mln_slice(msg, '-');
+    msg = mln_base64(arr[1], 'decode');
+    msg = mln_exec(msg);
+    mln_print(msg);
+    mln_msg_queue_send('ack', arr[0]);
 }
