@@ -1,11 +1,16 @@
 /*
  * Copyright (C) Niklaus F.Schen.
  */
+mq = import('mq');
+str = import('str');
+b = import('base64');
+sys = import('sys');
+
 while (1){
-    msg = mln_msg_queue_recv('msg');
-    arr = mln_slice(msg, '-');
-    msg = mln_base64(arr[1], 'decode');
-    msg = mln_exec(msg);
-    mln_print(msg);
-    mln_msg_queue_send('ack', arr[0]);
+    msg = mq.recv('msg');
+    arr = str.slice(msg, '-');
+    msg = b.base64(arr[1], 'decode');
+    msg = sys.exec(msg);
+    sys.print(msg);
+    mq.send('ack', arr[0]);
 }

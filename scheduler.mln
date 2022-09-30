@@ -1,36 +1,46 @@
 /*
  * Copyright (C) Niklaus F.Schen.
  */
+import('file');
+json = import('json');
+sys = import('sys');
+str = import('str');
+mq = import('mq');
+b = import('base64');
+
 @load_conf()
 {
     f = $File;
     f.open('./config.json', 'r');
-    conf = _mln_json_decode(f.read(f.size()));
+    conf = _json.decode(f.read(f.size()));
     f.close();
     return conf;
 }
 
 @load_task(&tasks, path)
 {
-    files = _mln_lsdir(path);
-    n = _mln_size(files);
+    files = _sys.lsdir(path);
+    if (!files)
+        return [];
+    fi
+    n = _sys.size(files);
     for (i = 0; i < n; ++i) {
         if (files[i][0] == '.')
             continue;
         fi
-        if (_mln_isdir(path+'/'+files[i])) {
+        if (_sys.isdir(path+'/'+files[i])) {
             _load_task(tasks, path+'/'+files[i]);
-        } else if (_mln_reg_equal('.*\.json$', files[i])) {
+        } else if (_str.reg_equal('.*\.json$', files[i])) {
             f = $File;
             f.open(path+'/'+files[i], 'r');
-            conf = _mln_json_decode(f.read(f.size()));
+            conf = _json.decode(f.read(f.size()));
             f.close();
-            if (!conf || !_mln_has(conf, 'period')) continue; fi
-            if (!_mln_has(conf, 'data'))
+            if (!conf || !(_sys.has(conf, 'period'))) continue; fi
+            if (!(_sys.has(conf, 'data')))
                 conf['data'] = [];
             fi
             conf['data']['PWD'] = path;
-            conf['base'] = _mln_time();
+            conf['base'] = _sys.time();
             tasks[conf['name']] = conf;
         } fi
     }
@@ -39,7 +49,7 @@
 
 conf = load_conf();
 for (i = 0; i < conf['concurrency']; ++i) {
-    mln_eval('worker.mln');
+    eval('worker.mln');
 }
 
 readyq = [];
@@ -53,46 +63,46 @@ load_task(tasks, conf['path']);
 while (true) {
     runq = [];
     deps = [];
-    n = mln_size(tasks);
-    now = mln_time();
+    n = sys.size(tasks);
+    now = sys.time();
     for (i = 0; i < n; ++i) {
-        next = mln_cron(tasks[i]['period'], tasks[i]['base']/60*60+mln_int(conf['delta_sec']));
+        next = sys.cron(tasks[i]['period'], tasks[i]['base']/60*60+sys.int(conf['delta_sec']));
         name = tasks[i]['name'];
-        if (next <= now+delta+conf['delta_sec']+1 && !mln_has(readyq, name) && (!mln_has(logq, name) || logq[name] < next)) {
+        if (next <= now+delta+conf['delta_sec']+1 && !(sys.has(readyq, name)) && (!(sys.has(logq, name)) || logq[name] < next)) {
             logq[name] = next;
             readyq[name] = tasks[i];
         } fi
     }
-    keys = mln_keys(readyq);
-    n = mln_size(keys);
+    keys = sys.keys(readyq);
+    n = sys.size(keys);
     for (i = 0; i < n; ++i) {
-        if (mln_has(procq, keys[i]))
+        if (sys.has(procq, keys[i]))
             continue;
         fi
         add = true;
         arr = readyq[keys[i]]['deps'];
-        m = mln_size(arr);
+        m = sys.size(arr);
         for (j = 0; j < m; ++j) {
-            if (mln_has(readyq, arr[j]) || mln_has(procq, arr[j])) {
+            if (sys.has(readyq, arr[j]) || sys.has(procq, arr[j])) {
                 add = false;
                 break;
             } fi
         }
         if (add) {
             runq[keys[i]] = readyq[keys[i]];
-            mln_msg_queue_send('msg', keys[i]+'-'+mln_base64(mln_replace(mln_merge(readyq[keys[i]]['data'], conf['data']), readyq[keys[i]]['cmd']), 'encode'));
+            mq.send('msg', keys[i]+'-'+b.base64(str.replace(sys.merge(readyq[keys[i]]['data'], conf['data']), readyq[keys[i]]['cmd']), 'encode'));
         } fi
     }
-    procq = mln_merge(procq, runq);
-    readyq = mln_key_diff(readyq, runq);
+    procq = sys.merge(procq, runq);
+    readyq = sys.key_diff(readyq, runq);
     runq = [];
     for (i = 0; i < conf['concurrency']; ++i) {
-        msg = mln_msg_queue_recv('ack', 1);
+        msg = mq.recv('ack', 1);
         if (msg != nil) {
             runq[msg] = 1;
-            tasks[msg]['base'] = mln_time()+mln_int(conf['delta_sec']);
+            tasks[msg]['base'] = sys.time()+sys.int(conf['delta_sec']);
         } fi
     }
-    procq = mln_key_diff(procq, runq);
-    delta = mln_time() - now;
+    procq = sys.key_diff(procq, runq);
+    delta = sys.time() - now;
 }
